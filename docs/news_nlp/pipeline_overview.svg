@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="580" viewBox="0 0 1200 580" role="img" aria-labelledby="title desc">
+  <title id="title">Company news NLP pipeline</title>
+  <desc id="desc">News passes through company relevance and event deduplication, then FinBERT ESG pillar routing. Environmental, social, and governance events go to the direction model. None results receive a conservative MiniLM financial fallback. Assigned events become time-window company features, while unresolved events remain unclassified.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#52606d"/>
+    </marker>
+    <style>
+      .title { font: 700 26px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172b4d; }
+      .subtitle { font: 400 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #5e6c84; }
+      .step { font: 700 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #ffffff; letter-spacing: .05em; }
+      .label { font: 700 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172b4d; }
+      .small { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #42526e; }
+      .branch { font: 700 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #42526e; }
+      .arrow { fill: none; stroke: #52606d; stroke-width: 2.4; marker-end: url(#arrow); }
+      .box { stroke-width: 1.6; rx: 12; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="560" fill="#ffffff"/>
+  <text x="40" y="48" class="title">From company news to usable F/E/S/G features</text>
+  <text x="40" y="75" class="subtitle">A deliberately conservative prototype: uncertain events may stay unclassified.</text>
+
+  <rect x="35" y="128" width="150" height="112" class="box" fill="#f4f5f7" stroke="#b3bac5"/>
+  <rect x="35" y="128" width="150" height="28" rx="12" fill="#6554c0"/>
+  <text x="51" y="148" class="step">INPUT</text>
+  <text x="110" y="184" text-anchor="middle" class="label">News</text>
+  <text x="110" y="207" text-anchor="middle" class="small">headline + date</text>
+  <text x="110" y="226" text-anchor="middle" class="small">source + URL</text>
+
+  <path d="M185 184 H220" class="arrow"/>
+
+  <rect x="222" y="128" width="180" height="112" class="box" fill="#e9f2ff" stroke="#579dff"/>
+  <rect x="222" y="128" width="180" height="28" rx="12" fill="#0c66e4"/>
+  <text x="238" y="148" class="step">1 · LINK</text>
+  <text x="312" y="184" text-anchor="middle" class="label">Company relevance</text>
+  <text x="312" y="207" text-anchor="middle" class="small">issuer evidence</text>
+  <text x="312" y="226" text-anchor="middle" class="small">conservative matching</text>
+
+  <path d="M402 184 H437" class="arrow"/>
+
+  <rect x="439" y="128" width="165" height="112" class="box" fill="#e9f2ff" stroke="#579dff"/>
+  <rect x="439" y="128" width="165" height="28" rx="12" fill="#0c66e4"/>
+  <text x="455" y="148" class="step">2 · GROUP</text>
+  <text x="521.5" y="184" text-anchor="middle" class="label">Event deduplication</text>
+  <text x="521.5" y="207" text-anchor="middle" class="small">one event</text>
+  <text x="521.5" y="226" text-anchor="middle" class="small">one direction vote</text>
+
+  <path d="M604 184 H639" class="arrow"/>
+
+  <rect x="641" y="128" width="180" height="112" class="box" fill="#e3fcef" stroke="#4bce97"/>
+  <rect x="641" y="128" width="180" height="28" rx="12" fill="#1f845a"/>
+  <text x="657" y="148" class="step">3 · ROUTE</text>
+  <text x="731" y="184" text-anchor="middle" class="label">FinBERT-ESG</text>
+  <text x="731" y="207" text-anchor="middle" class="small">Environmental · Social</text>
+  <text x="731" y="226" text-anchor="middle" class="small">Governance · None</text>
+
+  <path d="M821 184 H868" class="arrow"/>
+  <text x="844" y="167" text-anchor="middle" class="branch">E / S / G</text>
+
+  <rect x="870" y="128" width="190" height="112" class="box" fill="#fff7d6" stroke="#e2b203"/>
+  <rect x="870" y="128" width="190" height="28" rx="12" fill="#b38600"/>
+  <text x="886" y="148" class="step">5 · SCORE</text>
+  <text x="965" y="184" text-anchor="middle" class="label">Fine-tuned FinBERT</text>
+  <text x="965" y="207" text-anchor="middle" class="small">negative · neutral</text>
+  <text x="965" y="226" text-anchor="middle" class="small">positive probabilities</text>
+
+  <path d="M1060 184 H1093" class="arrow"/>
+
+  <rect x="1095" y="128" width="70" height="112" class="box" fill="#f4f5f7" stroke="#b3bac5"/>
+  <text x="1130" y="174" text-anchor="middle" class="label">F/E/S/G</text>
+  <text x="1130" y="198" text-anchor="middle" class="small">scored</text>
+  <text x="1130" y="219" text-anchor="middle" class="small">events</text>
+
+  <path d="M731 240 V286" class="arrow"/>
+  <text x="746" y="270" class="branch">None</text>
+
+  <rect x="621" y="288" width="220" height="112" class="box" fill="#fff0e6" stroke="#fea362"/>
+  <rect x="621" y="288" width="220" height="28" rx="12" fill="#c25100"/>
+  <text x="637" y="308" class="step">4 · FALLBACK</text>
+  <text x="731" y="344" text-anchor="middle" class="label">MiniLM + keywords</text>
+  <text x="731" y="367" text-anchor="middle" class="small">financial evidence only</text>
+  <text x="731" y="386" text-anchor="middle" class="small">otherwise leave unknown</text>
+
+  <path d="M841 344 C885 344 884 242 930 242" class="arrow"/>
+  <text x="875" y="327" class="branch">Financial</text>
+
+  <path d="M731 400 V445" class="arrow"/>
+  <text x="746" y="430" class="branch">No clear evidence</text>
+  <rect x="621" y="447" width="220" height="70" class="box" fill="#f4f5f7" stroke="#b3bac5" stroke-dasharray="5 4"/>
+  <text x="731" y="477" text-anchor="middle" class="label">Unclassified</text>
+  <text x="731" y="499" text-anchor="middle" class="small">no direction score</text>
+
+  <path d="M1130 240 V304 H1045" class="arrow"/>
+  <rect x="870" y="306" width="295" height="116" class="box" fill="#e3fcef" stroke="#4bce97"/>
+  <rect x="870" y="306" width="295" height="28" rx="12" fill="#1f845a"/>
+  <text x="886" y="326" class="step">6 · AGGREGATE</text>
+  <text x="1017.5" y="363" text-anchor="middle" class="label">Company × pillar features</text>
+  <text x="1017.5" y="387" text-anchor="middle" class="small">30 · 90 · 180-day windows</text>
+  <text x="1017.5" y="407" text-anchor="middle" class="small">tone · evidence · momentum</text>
+
+  <text x="40" y="500" class="small">Key design rule: missing evidence is not converted into neutral sentiment.</text>
+  <text x="40" y="550" class="small">Models: FinBERT-ESG for pillar routing · MiniLM for conservative financial fallback · fine-tuned FinBERT for direction.</text>
+</svg>

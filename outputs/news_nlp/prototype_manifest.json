@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "run_kind": "fast_25_company_hackathon_prototype",
+  "as_of_date": "2026-09-13",
+  "company_count": 25,
+  "model_revisions": {
+    "finbert_esg": "f79fefa034aa8a969379e23b755369a94c4cd0d3",
+    "all_minilm_l6_v2": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "direction_checkpoint_sha256": "fc467b9ff6639aa4a77ae39ed7b486ecea36a6fc462206c91133308c525c6827"
+  },
+  "input_event_count": 2000,
+  "direction_scored_event_count": 1422,
+  "pillar_counts": {
+    "environmental": 185,
+    "social": 590,
+    "governance": 70,
+    "financial_fallback": 577,
+    "unclassified": 578
+  },
+  "direction_counts": {
+    "negative": 378,
+    "neutral": 613,
+    "positive": 431,
+    "not_scored_unclassified": 578
+  },
+  "feature_output": {
+    "company_rows": 25,
+    "company_pillar_window_rows": 300,
+    "pillars": ["environmental", "social", "governance", "financial"],
+    "windows_days": [30, 90, 180],
+    "recency_half_life_days": 30,
+    "tone_shrinkage": "min(1, effective_weight / 3)"
+  },
+  "validation": {
+    "probability_sums_passed": true,
+    "fallback_routing_passed": true,
+    "training_overlap_events": 0,
+    "company_feature_validation_passed": true,
+    "financial_kept_separate_from_esg": true
+  },
+  "hashes": {
+    "prototype_sample_sha256": "87fe77d79665d48ec3deb9fcaaea832ad75e2891e4fad877bba2929223f876cd",
+    "direction_checkpoint_sha256": "fc467b9ff6639aa4a77ae39ed7b486ecea36a6fc462206c91133308c525c6827",
+    "result_archive_sha256": "c731df3f34cea4f0cb73b2d64dee9f2f97aecf861e0477c54cbfed12d61bd1f1"
+  },
+  "coverage_complete": false,
+  "counts_are_exhaustive": false,
+  "warning": "The frozen retrieval was capped and incomplete. Counts are not comparable coverage measures; tone and momentum are exploratory prototype features."
+}

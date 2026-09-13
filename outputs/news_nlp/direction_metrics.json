@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "task": "target-company headline direction",
+  "base_model": "ProsusAI/finbert",
+  "base_model_revision": "4556d13015211d73dccd3fdd39d39232506f3e43",
+  "input_format": "Company: {company_name}. Pillar: {pillar}. Headline: {headline}",
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "dataset": {
+    "rows": 6705,
+    "train": 5730,
+    "development": 119,
+    "test": 856,
+    "locked_legacy_test": 743,
+    "fresh_active_challenge_test": 113
+  },
+  "selected_run": {
+    "seed": 17,
+    "best_epoch": 2,
+    "selection_rule": "highest macro-F1 on the fresh 119-row development split",
+    "train_batch_size": 32,
+    "evaluation_batch_size": 64,
+    "max_length": 128,
+    "learning_rate": 2e-05,
+    "checkpoint_sha256": "fc467b9ff6639aa4a77ae39ed7b486ecea36a6fc462206c91133308c525c6827"
+  },
+  "combined_test": {
+    "rows": 856,
+    "accuracy": 0.810748,
+    "macro_f1": 0.779289,
+    "weighted_f1": 0.81395,
+    "by_pillar": {
+      "financial": {"rows": 566, "accuracy": 0.832155, "macro_f1": 0.780862},
+      "environmental": {"rows": 41, "accuracy": 0.658537, "macro_f1": 0.541726},
+      "social": {"rows": 102, "accuracy": 0.715686, "macro_f1": 0.696702},
+      "governance": {"rows": 147, "accuracy": 0.836735, "macro_f1": 0.706876}
+    }
+  },
+  "generic_finbert_tone_baseline": {
+    "rows": 856,
+    "accuracy": 0.634346,
+    "macro_f1": 0.576198,
+    "weighted_f1": 0.632969
+  },
+  "fresh_active_challenge": {
+    "rows": 113,
+    "before_active_learning": {"accuracy": 0.522124, "macro_f1": 0.504486},
+    "selected_model": {"accuracy": 0.681416, "macro_f1": 0.672087}
+  },
+  "legacy_test_retention": {
+    "rows": 743,
+    "pre_active_macro_f1": 0.797964,
+    "selected_macro_f1": 0.789753,
+    "macro_f1_delta": -0.008211,
+    "paired_bootstrap_95_interval": [-0.034289, 0.018245],
+    "interpretation": "small, statistically inconclusive retention cost"
+  },
+  "scope_note": "These metrics evaluate direction with adjudicated pillar labels. They are not an end-to-end evaluation of relevance and pillar routing."
+}
