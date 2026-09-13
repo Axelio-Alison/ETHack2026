@@ -16,4 +16,4 @@ Sector peers should improve comparability between different business models, whi
 
 The inputs by pillar are: Environmental—Scope 1+2 footprint; Transition—emissions-intensity trend, SBTi, and climate governance; Social—diversity, safety, policies, and employee stability; Governance—board independence, CEO separation, attendance, women executives, and sustainability oversight.
 
-The final score deducts up to 15 points for recent, sector-relevant regulatory evidence. A separate net-zero score combines absolute and employee-adjusted emissions trends with SBTi and climate-governance signals.
+The final score deducts up to 15 points for recent, sector-relevant regulatory evidence. A separate net-zero score combines absolute and revenues-adjusted emissions trends with SBTi and climate-governance signals.
