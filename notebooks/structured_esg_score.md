@@ -8,6 +8,8 @@ Workflow:
 
    `adjusted score = 50 + min(1, coverage / 0.70) × (raw score − 50)`
 
+Sector peers improve comparability between different business models, while the global fallback avoids unstable results from small groups. Shrinkage prevents sparse disclosure from producing extreme scores, and the regulatory deduction is capped so it cannot overwhelm the underlying pillar assessment.
+
 4. Combine pillars:
 
    `structured score = 45% Environmental + 15% Transition + 20% Social + 20% Governance`
