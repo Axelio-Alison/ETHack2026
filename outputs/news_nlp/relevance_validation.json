@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "scope": "strict allowlist used by the capped 25-company prototype",
+  "holdout_rows": 200,
+  "confusion_matrix": {
+    "true_positive": 122,
+    "false_positive": 5,
+    "false_negative": 37,
+    "true_negative": 36
+  },
+  "precision": 0.96063,
+  "recall": 0.76730,
+  "f1": 0.85315,
+  "precision_wilson_95": [0.9111, 0.9831],
+  "blind_silver_label_review": {
+    "pass_agreement": 0.995,
+    "cohen_kappa": 0.98452,
+    "label_provenance": "two independent model-review passes plus model adjudication; silver labels, not human gold labels"
+  },
+  "decision": "PASS only for the frozen, capped 25-company hackathon prototype",
+  "full_500_decision": "NO-GO until retrieval coverage and relevance are revalidated"
+}

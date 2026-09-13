@@ -1,3 +1,15 @@
 .venv/
+.venv*/
+.cache*/
 __pycache__/
+*.py[cod]
 .ipynb_checkpoints/
+
+# Models and private/retrieved data are distributed separately.
+*.safetensors
+pytorch_model.bin
+*.zip
+checkpoints/
+models/
+data/private/
+outputs/news_nlp/training_run/

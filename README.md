@@ -39,6 +39,12 @@ Missing data are not filled with zero or sample averages. Instead, the notebook 
 - `outputs/climate_transition_scores.csv`: exported company-level score dataset.
 - `outputs/climate_transition_scores.xlsx`: Excel version of the exported score dataset.
 
+## News NLP prototype
+
+The news extension adds a transparent current-event signal without mixing news counts into the climate score. Start with the [pipeline picture and formulas](docs/news_nlp/news_inference_pipeline.md), review the [FinBERT direction fine-tuning](docs/news_nlp/finbert_direction_model.md), or run the [small synthetic demo](notebooks/news_pipeline_demo.ipynb). The reusable logic lives in `src/news_nlp.py`; large weights, private labels, and raw news caches stay outside Git.
+
+Install the small project environment with `pip install -r requirements-news-nlp.txt`. The demo runs offline by default; real inference additionally requires the selected direction checkpoint through `DIRECTION_MODEL_PATH_OR_ID`.
+
 ## Portfolio extension
 
 The exported Climate Transition Score can later be combined with a financial transition-risk or transition-beta signal to answer the bonus portfolio question. In that later step, the investment signal should distinguish:

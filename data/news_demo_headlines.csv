@@ -1,0 +1,11 @@
+row_id,company_id,company_name,aliases,headline,published_at_utc,relevance_strength,domains,article_count,is_synthetic
+D001,demo:northstar,Northstar Energy,Northstar|Northstar Energy,"Demo: Northstar Energy begins operating a new solar facility",2026-09-08T09:00:00Z,0.96,demo.local,1,1
+D002,demo:northstar,Northstar Energy,Northstar|Northstar Energy,"Demo: Northstar Energy begins operating a new solar facility",2026-09-08T13:00:00Z,0.94,example.test,1,1
+D003,demo:northstar,Northstar Energy,Northstar|Northstar Energy,"Demo: Northstar Energy reports a temporary increase in plant emissions",2026-07-22T11:00:00Z,0.92,demo.local,1,1
+D004,demo:harbor,Harbor Bank,Harbor|Harbor Bank,"Demo: Harbor Bank reports quarterly profit in line with its forecast",2026-09-04T08:30:00Z,0.95,demo.local,1,1
+D005,demo:harbor,Harbor Bank,Harbor|Harbor Bank,"Demo: Harbor Bank raises its loan-loss provision after defaults increase",2026-06-18T15:00:00Z,0.91,example.test,1,1
+D006,demo:orbit,Orbit Foods,Orbit|Orbit Foods,"Demo: Orbit Foods recalls a product after a customer safety complaint",2026-09-10T07:00:00Z,0.97,demo.local,1,1
+D007,demo:orbit,Orbit Foods,Orbit|Orbit Foods,"Demo: Orbit Foods expands paid parental leave for employees",2026-08-11T10:00:00Z,0.93,example.test,1,1
+D008,demo:cedar,Cedar Software,Cedar|Cedar Software,"Demo: Cedar Software appoints two independent directors",2026-09-01T12:00:00Z,0.96,demo.local,1,1
+D009,demo:cedar,Cedar Software,Cedar|Cedar Software,"Demo: A regulator opens an inquiry into Cedar Software's disclosure controls",2026-05-30T14:00:00Z,0.90,example.test,1,1
+D010,demo:cedar,Cedar Software,Cedar|Cedar Software,"Demo: Cedar Software publishes its annual meeting schedule",2026-09-12T16:00:00Z,0.88,demo.local,1,1
