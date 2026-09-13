@@ -23,16 +23,6 @@ _BLOOMBERG_ERROR_RE = re.compile(
 )
 
 
-def find_project_root(start: Path) -> Path:
-    """Find the project root whether the notebook runs from root or notebooks/."""
-    start = Path(start).resolve()
-    if (start / "notebooks").exists():
-        return start
-    if (start.parent / "notebooks").exists():
-        return start.parent
-    return start
-
-
 def resolve_input(project_root: Path, env_name: str, filename: str) -> Path:
     """Return the first available location for a required input file."""
     candidates = [
@@ -141,22 +131,20 @@ def file_sha256(path: Path) -> str:
 
 def build_security_map(companies: pd.DataFrame) -> pd.DataFrame:
     """Expand pipe-separated share classes into one mapping row per security."""
-    security_map = (
-        companies[["company_id", "primary_ticker", "constituent_tickers"]]
-        .assign(
-            normalized_ticker=lambda frame: frame["constituent_tickers"].str.split(
-                "|", regex=False
-            )
-        )
-        .explode("normalized_ticker")
-        .assign(
-            normalized_ticker=lambda frame: frame["normalized_ticker"].map(
-                normalize_ticker
-            )
-        )
-        .drop(columns="constituent_tickers")
-        .reset_index(drop=True)
+    # Use named intermediate steps so the identity mapping is easy to inspect.
+    security_map = companies[
+        ["company_id", "primary_ticker", "constituent_tickers"]
+    ].copy()
+    security_map["normalized_ticker"] = security_map["constituent_tickers"].str.split(
+        "|", regex=False
     )
+    security_map = security_map.explode("normalized_ticker")
+    security_map["normalized_ticker"] = security_map["normalized_ticker"].map(
+        normalize_ticker
+    )
+    security_map = security_map.drop(columns="constituent_tickers")
+    security_map = security_map.reset_index(drop=True)
+
     if not security_map["normalized_ticker"].is_unique:
         raise ValueError("A normalized ticker maps to more than one company.")
     return security_map
@@ -207,14 +195,12 @@ def map_and_collapse(frame, sheet_name, security_map):
     working["is_primary_security"] = working["normalized_ticker"].eq(
         working["primary_ticker"].map(normalize_ticker)
     )
-    collapsed = (
-        working.sort_values(
-            ["company_id", "is_primary_security"], ascending=[True, False]
-        )
-        .drop_duplicates("company_id", keep="first")
-        .sort_values("company_id")
-        .reset_index(drop=True)
+    collapsed = working.sort_values(
+        ["company_id", "is_primary_security"], ascending=[True, False]
     )
+    collapsed = collapsed.drop_duplicates("company_id", keep="first")
+    collapsed = collapsed.sort_values("company_id")
+    collapsed = collapsed.reset_index(drop=True)
     return working, collapsed, conflicts
 
 
@@ -330,6 +316,8 @@ def score_block(
     observed_weights = []
     applicable_weights = []
 
+    # Work company by company. This is more explicit than a vectorized expression
+    # and keeps the treatment of missing and non-material features visible.
     for row in frame.itertuples(index=False):
         weighted_sum = 0.0
         observed_total = 0.0
@@ -353,6 +341,7 @@ def score_block(
 
     raw = pd.Series(raw_scores, index=frame.index, dtype=float)
     observed = pd.Series(observed_weights, index=frame.index, dtype=float).clip(0, 1)
+    # Sensitivity tests reuse this function and change only the prior.
     if prior_mode == "sector_median":
         prior = raw.groupby(frame["sector"]).transform("median").fillna(neutral_prior)
     else:
@@ -546,8 +535,10 @@ def feature_catalog(current_time_basis):
         "applicability_rule": "Sector materiality matrix",
     }
 
-    def item(pillar, feature, source, description, unit, direction, time_basis,
-             numerator, denominator, status, reason, **overrides):
+    def item(
+        pillar, feature, source, description, unit, direction, time_basis,
+        numerator, denominator, status, reason, **overrides,
+    ):
         row = {
             "pillar": pillar,
             "feature": feature,
@@ -565,26 +556,143 @@ def feature_catalog(current_time_basis):
         row.update(overrides)
         return row
 
+    # Each record reads in the same order as the helper signature above.
     return [
-        item("Environmental", "scope12_revenue_intensity", "GHG_SCOPE_1_2024 + GHG_SCOPE_2_2024 / SALES_REV_TURN_2024", "Scope 1+2 emissions per revenue", "Not calculated: emissions physical unit and sales reporting currency absent", "adverse", "2024", "GHG_SCOPE_1_2024 + GHG_SCOPE_2_2024", "SALES_REV_TURN_2024", "Disabled", "Failed unit/currency comparability check"),
-        item("Environmental", "scope3_revenue_intensity", "GHG_SCOPE_3_2024 / SALES_REV_TURN_2024", "Scope 3 emissions per revenue", "Not calculated: emissions physical unit and sales reporting currency absent", "adverse", "2024", "GHG_SCOPE_3_2024", "SALES_REV_TURN_2024", "Disabled", "Failed unit/currency comparability check; lower coverage"),
-        item("Environmental", "energy_revenue_intensity", "ENERGY_CONSUMPTION / SALES_REV_TURN_2024", "Energy use per revenue", "Not calculated: energy unit, aligned period, and sales reporting currency absent", "adverse", "Mixed candidate; invalid", "ENERGY_CONSUMPTION", "SALES_REV_TURN_2024", "Disabled", "Failed unit, period, and currency checks"),
-        item("Environmental", "resource_revenue_intensity", "WATER_CONSUMPTION; TOTAL_WASTE / SALES_REV_TURN_2024", "Resource use per revenue", "Not calculated: incompatible resource units and sales currency absent", "adverse", "Mixed candidate; invalid", "Water/waste candidate fields", "SALES_REV_TURN_2024", "Disabled", "No coherent verified numerator; failed currency check"),
-        item("Environmental", "renewable_energy_ratio", "RENEW_ENERGY_USE / ENERGY_CONSUMPTION", "Renewable share of energy use", "Not calculated: exact source units and aligned period absent", "beneficial", current_time_basis, "RENEW_ENERGY_USE", "ENERGY_CONSUMPTION", "Disabled", "Exact numerator/denominator units and period not documented"),
-        item("Environmental", "scope12_reported_amount_2024", "GHG_SCOPE_1_2024 + GHG_SCOPE_2_2024", "Reported Scope 1+2 footprint, used only as an ordinal outcome", "Bloomberg native reported amount; exact physical unit not supplied", "adverse", "2024", "GHG_SCOPE_1_2024 + GHG_SCOPE_2_2024", "None", "Enabled", "Same standardized fields support ordinal sector/global percentiles; no physical-unit claim", missing_rule="Missing if either scope is missing"),
-        item("Transition", "scope12_employee_intensity_trend", "GHG_SCOPE_1/2_2019:2024 and NUM_OF_EMPLOYEES_2019:2024", "Annualized trend in reported Scope 1+2 amount per employee", "percent per year; unknown emissions scale cancels", "adverse", "2019-2024; >=4 comparable years", "Annual Scope 1+2 reported amount", "Annual employee count", "Enabled", "Within-company log trend is scale-invariant; employee denominator is a count", missing_rule="Missing with fewer than four positive comparable pairs"),
-        item("Transition", "scope12_absolute_trend", "GHG_SCOPE_1/2_2019:2024", "Annualized trend in absolute reported Scope 1+2 amount", "percent per year; unknown emissions scale cancels", "adverse", "2019-2024; >=4 comparable years", "Annual Scope 1+2 reported amount", "None", "Enabled", "Within-company log trend is scale-invariant", missing_rule="Missing with fewer than four positive comparable observations"),
-        item("Transition", "sbti_status", "SBTI_NEAR_TERM_TARGET_STATUS", "SBTi near-term target status", "ordinal category", "beneficial", current_time_basis, "Not applicable", "Not applicable", "Enabled", "Verified categorical commitment field", missing_rule="Missing is not a failed commitment"),
-        item("Transition", "climate_governance_support", "CSR_SUSTAINABILITY_COMMITTEE", "Sustainability committee as climate-governance support proxy", "Y/N", "beneficial", current_time_basis, "Not applicable", "Not applicable", "Enabled", "Broad governance proxy; not treated as realized climate performance", missing_rule="Missing is unscored"),
-        item("Social", "diversity", "PCT_WOMEN_EMPLOYEES; PCT_WOMEN_MGT", "Average observed workforce and management gender representation", "percent", "beneficial", current_time_basis, "Reported percentages", "Reported workforce populations", "Enabled", "Direct representation measures with explicit percent units", missing_rule="Average observed subfields only"),
-        item("Social", "employee_safety", "WORK_ACCIDENTS_EMPLOYEES; FATALITIES_EMPLOYEES", "Employee safety evidence from reported event counts", "reported counts", "adverse", current_time_basis, "Reported employee events", "None aligned; therefore downweighted", "Enabled - downweighted", "Useful evidence but no aligned exposure denominator", missing_rule="Average observed percentile subfields only"),
-        item("Social", "social_policy", "Five Y/N policy fields", "Observed social-policy composite", "share of observed Y/N fields", "beneficial", current_time_basis, "Positive observed policies", "Observed policy fields only", "Enabled", "Transparent policy breadth measure", missing_rule="Missing fields excluded; no all-missing score"),
-        item("Social", "employee_stability", "EMPLOYEE_TURNOVER_PCT", "Employee turnover", "percent", "adverse", current_time_basis, "Reported leavers", "Reported workforce basis", "Enabled", "Explicit percentage; coverage is reported", missing_rule="Missing is unscored"),
-        item("Governance", "board_independence", "PCT_INDEPENDENT_DIRECTORS", "Independent directors", "percent", "beneficial", current_time_basis, "Independent directors", "Board members", "Enabled", "Direct governance outcome", missing_rule="Missing is unscored", applicability_rule="Universal"),
-        item("Governance", "ceo_separation", "CEO_DUALITY", "CEO and chair roles separated", "Y/N transformed so N duality is beneficial", "beneficial", current_time_basis, "Not applicable", "Not applicable", "Enabled", "Direct governance structure", missing_rule="Missing is unscored", applicability_rule="Universal"),
-        item("Governance", "board_attendance", "BOARD_MEETING_ATTENDANCE_PCT", "Board meeting attendance", "percent", "beneficial", current_time_basis, "Attended meetings", "Applicable board meetings", "Enabled", "Direct board-function measure", missing_rule="Missing is unscored", applicability_rule="Universal"),
-        item("Governance", "women_executives", "PCT_OF_EXECUTIVES_THAT_ARE_WOMEN", "Women among executives", "percent", "beneficial", current_time_basis, "Women executives", "Executives", "Enabled", "Direct leadership-diversity measure", missing_rule="Missing is unscored", applicability_rule="Universal"),
-        item("Governance", "sustainability_committee", "CSR_SUSTAINABILITY_COMMITTEE", "Board/company sustainability committee", "Y/N", "beneficial", current_time_basis, "Not applicable", "Not applicable", "Enabled", "Oversight structure; not a realized outcome", missing_rule="Missing is unscored", applicability_rule="Universal"),
+        item(
+            "Environmental", "scope12_revenue_intensity",
+            "GHG_SCOPE_1_2024 + GHG_SCOPE_2_2024 / SALES_REV_TURN_2024",
+            "Scope 1+2 emissions per revenue",
+            "Not calculated: emissions physical unit and sales reporting currency absent",
+            "adverse", "2024", "GHG_SCOPE_1_2024 + GHG_SCOPE_2_2024", "SALES_REV_TURN_2024",
+            "Disabled", "Failed unit/currency comparability check",
+        ),
+        item(
+            "Environmental", "scope3_revenue_intensity",
+            "GHG_SCOPE_3_2024 / SALES_REV_TURN_2024", "Scope 3 emissions per revenue",
+            "Not calculated: emissions physical unit and sales reporting currency absent",
+            "adverse", "2024", "GHG_SCOPE_3_2024", "SALES_REV_TURN_2024",
+            "Disabled", "Failed unit/currency comparability check; lower coverage",
+        ),
+        item(
+            "Environmental", "energy_revenue_intensity",
+            "ENERGY_CONSUMPTION / SALES_REV_TURN_2024", "Energy use per revenue",
+            "Not calculated: energy unit, aligned period, and sales reporting currency absent",
+            "adverse", "Mixed candidate; invalid", "ENERGY_CONSUMPTION", "SALES_REV_TURN_2024",
+            "Disabled", "Failed unit, period, and currency checks",
+        ),
+        item(
+            "Environmental", "resource_revenue_intensity",
+            "WATER_CONSUMPTION; TOTAL_WASTE / SALES_REV_TURN_2024", "Resource use per revenue",
+            "Not calculated: incompatible resource units and sales currency absent",
+            "adverse", "Mixed candidate; invalid", "Water/waste candidate fields", "SALES_REV_TURN_2024",
+            "Disabled", "No coherent verified numerator; failed currency check",
+        ),
+        item(
+            "Environmental", "renewable_energy_ratio",
+            "RENEW_ENERGY_USE / ENERGY_CONSUMPTION", "Renewable share of energy use",
+            "Not calculated: exact source units and aligned period absent",
+            "beneficial", current_time_basis, "RENEW_ENERGY_USE", "ENERGY_CONSUMPTION",
+            "Disabled", "Exact numerator/denominator units and period not documented",
+        ),
+        item(
+            "Environmental", "scope12_reported_amount_2024",
+            "GHG_SCOPE_1_2024 + GHG_SCOPE_2_2024",
+            "Reported Scope 1+2 footprint, used only as an ordinal outcome",
+            "Bloomberg native reported amount; exact physical unit not supplied",
+            "adverse", "2024", "GHG_SCOPE_1_2024 + GHG_SCOPE_2_2024", "None",
+            "Enabled", "Same standardized fields support ordinal sector/global percentiles; no physical-unit claim",
+            missing_rule="Missing if either scope is missing",
+        ),
+        item(
+            "Transition", "scope12_employee_intensity_trend",
+            "GHG_SCOPE_1/2_2019:2024 and NUM_OF_EMPLOYEES_2019:2024",
+            "Annualized trend in reported Scope 1+2 amount per employee",
+            "percent per year; unknown emissions scale cancels",
+            "adverse", "2019-2024; >=4 comparable years",
+            "Annual Scope 1+2 reported amount", "Annual employee count", "Enabled",
+            "Within-company log trend is scale-invariant; employee denominator is a count",
+            missing_rule="Missing with fewer than four positive comparable pairs",
+        ),
+        item(
+            "Transition", "scope12_absolute_trend", "GHG_SCOPE_1/2_2019:2024",
+            "Annualized trend in absolute reported Scope 1+2 amount",
+            "percent per year; unknown emissions scale cancels",
+            "adverse", "2019-2024; >=4 comparable years",
+            "Annual Scope 1+2 reported amount", "None", "Enabled",
+            "Within-company log trend is scale-invariant",
+            missing_rule="Missing with fewer than four positive comparable observations",
+        ),
+        item(
+            "Transition", "sbti_status", "SBTI_NEAR_TERM_TARGET_STATUS",
+            "SBTi near-term target status", "ordinal category", "beneficial", current_time_basis,
+            "Not applicable", "Not applicable", "Enabled", "Verified categorical commitment field",
+            missing_rule="Missing is not a failed commitment",
+        ),
+        item(
+            "Transition", "climate_governance_support", "CSR_SUSTAINABILITY_COMMITTEE",
+            "Sustainability committee as climate-governance support proxy", "Y/N", "beneficial",
+            current_time_basis, "Not applicable", "Not applicable", "Enabled",
+            "Broad governance proxy; not treated as realized climate performance",
+            missing_rule="Missing is unscored",
+        ),
+        item(
+            "Social", "diversity", "PCT_WOMEN_EMPLOYEES; PCT_WOMEN_MGT",
+            "Average observed workforce and management gender representation",
+            "percent", "beneficial", current_time_basis,
+            "Reported percentages", "Reported workforce populations", "Enabled",
+            "Direct representation measures with explicit percent units",
+            missing_rule="Average observed subfields only",
+        ),
+        item(
+            "Social", "employee_safety", "WORK_ACCIDENTS_EMPLOYEES; FATALITIES_EMPLOYEES",
+            "Employee safety evidence from reported event counts", "reported counts", "adverse",
+            current_time_basis, "Reported employee events", "None aligned; therefore downweighted",
+            "Enabled - downweighted", "Useful evidence but no aligned exposure denominator",
+            missing_rule="Average observed percentile subfields only",
+        ),
+        item(
+            "Social", "social_policy", "Five Y/N policy fields", "Observed social-policy composite",
+            "share of observed Y/N fields", "beneficial", current_time_basis,
+            "Positive observed policies", "Observed policy fields only", "Enabled",
+            "Transparent policy breadth measure",
+            missing_rule="Missing fields excluded; no all-missing score",
+        ),
+        item(
+            "Social", "employee_stability", "EMPLOYEE_TURNOVER_PCT", "Employee turnover",
+            "percent", "adverse", current_time_basis, "Reported leavers", "Reported workforce basis",
+            "Enabled", "Explicit percentage; coverage is reported", missing_rule="Missing is unscored",
+        ),
+        item(
+            "Governance", "board_independence", "PCT_INDEPENDENT_DIRECTORS",
+            "Independent directors", "percent", "beneficial", current_time_basis,
+            "Independent directors", "Board members", "Enabled", "Direct governance outcome",
+            missing_rule="Missing is unscored", applicability_rule="Universal",
+        ),
+        item(
+            "Governance", "ceo_separation", "CEO_DUALITY", "CEO and chair roles separated",
+            "Y/N transformed so N duality is beneficial", "beneficial", current_time_basis,
+            "Not applicable", "Not applicable", "Enabled", "Direct governance structure",
+            missing_rule="Missing is unscored", applicability_rule="Universal",
+        ),
+        item(
+            "Governance", "board_attendance", "BOARD_MEETING_ATTENDANCE_PCT",
+            "Board meeting attendance", "percent", "beneficial", current_time_basis,
+            "Attended meetings", "Applicable board meetings", "Enabled", "Direct board-function measure",
+            missing_rule="Missing is unscored", applicability_rule="Universal",
+        ),
+        item(
+            "Governance", "women_executives", "PCT_OF_EXECUTIVES_THAT_ARE_WOMEN",
+            "Women among executives", "percent", "beneficial", current_time_basis,
+            "Women executives", "Executives", "Enabled", "Direct leadership-diversity measure",
+            missing_rule="Missing is unscored", applicability_rule="Universal",
+        ),
+        item(
+            "Governance", "sustainability_committee", "CSR_SUSTAINABILITY_COMMITTEE",
+            "Board/company sustainability committee", "Y/N", "beneficial", current_time_basis,
+            "Not applicable", "Not applicable", "Enabled",
+            "Oversight structure; not a realized outcome",
+            missing_rule="Missing is unscored", applicability_rule="Universal",
+        ),
     ]
 
 
@@ -685,12 +793,17 @@ def create_figures(frame, output_dir, sectors, pillar_weights, largest_rank_chan
     sns.set_theme(style="whitegrid", context="notebook")
     output_dir = Path(output_dir)
 
-    # Choose a representative company near the median score and coverage.
+    # Figure 1: decompose one representative company's score.
+    # Choose a company near the median score and median coverage.
     eligible = frame.loc[~frame["overall_coverage_grade"].eq("Low")].copy()
-    distance = (
-        (eligible["structured_score_after_regulatory_penalty"] - eligible["structured_score_after_regulatory_penalty"].median()).abs()
-        + 10 * (eligible["overall_observed_weight"] - eligible["overall_observed_weight"].median()).abs()
-    )
+    score_distance = (
+        eligible["structured_score_after_regulatory_penalty"]
+        - eligible["structured_score_after_regulatory_penalty"].median()
+    ).abs()
+    coverage_distance = (
+        eligible["overall_observed_weight"] - eligible["overall_observed_weight"].median()
+    ).abs()
+    distance = score_distance + 10 * coverage_distance
     representative = frame.loc[distance.idxmin()]
 
     labels = ["Environmental", "Transition", "Social", "Governance"]
@@ -698,17 +811,33 @@ def create_figures(frame, output_dir, sectors, pillar_weights, largest_rank_chan
     weights = [pillar_weights[label] for label in labels]
     contributions = [value * weight for value, weight in zip(values, weights)]
     fig, ax = plt.subplots(figsize=(9, 5.2))
-    bars = ax.barh(labels, contributions, color=["#2A9D8F", "#457B9D", "#E9C46A", "#6D597A"])
+    colors = ["#2A9D8F", "#457B9D", "#E9C46A", "#6D597A"]
+    bars = ax.barh(labels, contributions, color=colors)
     for bar, value, weight in zip(bars, values, weights):
-        ax.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2, f"{value:.1f} x {weight:.0%}", va="center", fontsize=10)
+        ax.text(
+            bar.get_width() + 0.3,
+            bar.get_y() + bar.get_height() / 2,
+            f"{value:.1f} x {weight:.0%}",
+            va="center",
+            fontsize=10,
+        )
     ax.set_xlabel("Weighted contribution to structured score")
-    ax.set_title(f"Score decomposition: {representative['company_name']} ({representative['primary_ticker']})")
-    ax.text(0.01, -0.20, f"Before penalty {representative['structured_score_before_regulatory_penalty']:.1f}; provisional penalty {representative['regulatory_evidence_penalty_provisional']:.1f}; after penalty {representative['structured_score_after_regulatory_penalty']:.1f}; coverage {representative['overall_observed_weight']:.0%} ({representative['overall_coverage_grade']}).", transform=ax.transAxes, fontsize=9)
+    title = f"Score decomposition: {representative['company_name']} ({representative['primary_ticker']})"
+    caption = (
+        f"Before penalty {representative['structured_score_before_regulatory_penalty']:.1f}; "
+        f"provisional penalty {representative['regulatory_evidence_penalty_provisional']:.1f}; "
+        f"after penalty {representative['structured_score_after_regulatory_penalty']:.1f}; "
+        f"coverage {representative['overall_observed_weight']:.0%} "
+        f"({representative['overall_coverage_grade']})."
+    )
+    ax.set_title(title)
+    ax.text(0.01, -0.20, caption, transform=ax.transAxes, fontsize=9)
     sns.despine(ax=ax)
     fig.tight_layout()
     fig.savefig(output_dir / "01_score_decomposition_representative_company.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
+    # Figure 2: show which components are observed in each sector.
     component_columns = {
         "E: Scope 1+2 amount": "scope12_reported_amount_2024_score",
         "T: Intensity trend": "scope12_employee_intensity_trend_score",
@@ -730,60 +859,157 @@ def create_figures(frame, output_dir, sectors, pillar_weights, largest_rank_chan
     }
     coverage = pd.DataFrame(index=sectors)
     for label, column in component_columns.items():
-        coverage[label] = frame.assign(observed=frame[column].notna()).groupby("sector")["observed"].mean().reindex(sectors)
+        observed = frame.assign(observed=frame[column].notna())
+        sector_coverage = observed.groupby("sector")["observed"].mean()
+        coverage[label] = sector_coverage.reindex(sectors)
     fig, ax = plt.subplots(figsize=(17, 7))
-    sns.heatmap(coverage * 100, annot=True, fmt=".0f", cmap="YlGnBu", vmin=0, vmax=100, cbar_kws={"label": "Companies with observed component (%)"}, ax=ax)
+    sns.heatmap(
+        coverage * 100,
+        annot=True,
+        fmt=".0f",
+        cmap="YlGnBu",
+        vmin=0,
+        vmax=100,
+        cbar_kws={"label": "Companies with observed component (%)"},
+        ax=ax,
+    )
     ax.set(title="Coverage by sector and component", xlabel="", ylabel="")
     fig.tight_layout()
     fig.savefig(output_dir / "02_coverage_heatmap_by_sector_component.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
+    # Figure 3: compare the broad score with the narrower transition score.
     fig, ax = plt.subplots(figsize=(9, 7))
     palette = {"High": "#2A9D8F", "Medium": "#E9C46A", "Low": "#E76F51"}
     for grade, group in frame.groupby("overall_coverage_grade"):
-        ax.scatter(group["structured_score_after_regulatory_penalty"], group["net_zero_transition_score"], s=38, alpha=0.75, label=f"{grade} coverage", color=palette[grade])
-    gaps = frame.assign(signed_gap=frame["structured_score_after_regulatory_penalty"] - frame["net_zero_transition_score"])
-    highlights = pd.concat([gaps.nlargest(2, "signed_gap"), gaps.nsmallest(2, "signed_gap")]).drop_duplicates("company_id")
-    for row, (dx, dy) in zip(highlights.itertuples(index=False), [(12, 24), (12, -24), (-12, 24), (-12, -24)]):
-        ax.annotate(row.primary_ticker, (row.structured_score_after_regulatory_penalty, row.net_zero_transition_score), xytext=(dx, dy), textcoords="offset points", fontsize=8, ha="left" if dx > 0 else "right", bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "none", "alpha": 0.8}, arrowprops={"arrowstyle": "-", "color": "#777777", "lw": 0.6})
-    ax.set(xlabel="Structured sustainability score after provisional penalty", ylabel="Net-zero transition score", title="Broad sustainability and net-zero transition are distinct")
+        ax.scatter(
+            group["structured_score_after_regulatory_penalty"],
+            group["net_zero_transition_score"],
+            s=38,
+            alpha=0.75,
+            label=f"{grade} coverage",
+            color=palette[grade],
+        )
+    gaps = frame.copy()
+    gaps["signed_gap"] = (
+        gaps["structured_score_after_regulatory_penalty"] - gaps["net_zero_transition_score"]
+    )
+    highlights = pd.concat([
+        gaps.nlargest(2, "signed_gap"),
+        gaps.nsmallest(2, "signed_gap"),
+    ]).drop_duplicates("company_id")
+    annotation_offsets = [(12, 24), (12, -24), (-12, 24), (-12, -24)]
+    for row, (dx, dy) in zip(highlights.itertuples(index=False), annotation_offsets):
+        ax.annotate(
+            row.primary_ticker,
+            (row.structured_score_after_regulatory_penalty, row.net_zero_transition_score),
+            xytext=(dx, dy),
+            textcoords="offset points",
+            fontsize=8,
+            ha="left" if dx > 0 else "right",
+            bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "none", "alpha": 0.8},
+            arrowprops={"arrowstyle": "-", "color": "#777777", "lw": 0.6},
+        )
+    ax.set(
+        xlabel="Structured sustainability score after provisional penalty",
+        ylabel="Net-zero transition score",
+        title="Broad sustainability and net-zero transition are distinct",
+    )
     ax.legend(frameon=True)
     sns.despine(ax=ax)
     fig.tight_layout()
     fig.savefig(output_dir / "03_sustainability_vs_net_zero_transition.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
+    # Figure 4: isolate the largest rank movements caused by the deduction.
     rank_shift = largest_rank_changes.sort_values("rank_delta")
     fig, ax = plt.subplots(figsize=(10, 7))
-    ax.barh(rank_shift["primary_ticker"], rank_shift["rank_delta"], color=np.where(rank_shift["rank_delta"] < 0, "#D1495B", "#2A9D8F"))
+    bar_colors = np.where(rank_shift["rank_delta"] < 0, "#D1495B", "#2A9D8F")
+    ax.barh(rank_shift["primary_ticker"], rank_shift["rank_delta"], color=bar_colors)
     ax.axvline(0, color="#333333", linewidth=0.8)
-    ax.set(xlabel="Rank delta (negative = deterioration after regulatory evidence)", ylabel="", title="Largest rank changes from provisional regulatory evidence")
+    ax.set(
+        xlabel="Rank delta (negative = deterioration after regulatory evidence)",
+        ylabel="",
+        title="Largest rank changes from provisional regulatory evidence",
+    )
     sns.despine(ax=ax)
     fig.tight_layout()
     fig.savefig(output_dir / "04_regulatory_rank_shift.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
+    # Figure 5: contrast stated commitments with realized transition evidence.
     fig, ax = plt.subplots(figsize=(9, 7))
-    points = ax.scatter(frame["realized_transition_score"], frame["commitment_score"], c=frame["credibility_gap"], cmap="RdYlGn_r", vmin=-40, vmax=40, s=42, alpha=0.8)
+    points = ax.scatter(
+        frame["realized_transition_score"],
+        frame["commitment_score"],
+        c=frame["credibility_gap"],
+        cmap="RdYlGn_r",
+        vmin=-40,
+        vmax=40,
+        s=42,
+        alpha=0.8,
+    )
     ax.plot([0, 100], [0, 100], linestyle="--", color="#555555", linewidth=1)
     large_gaps = frame.nlargest(8, "credibility_gap")
-    ax.scatter(large_gaps["realized_transition_score"], large_gaps["commitment_score"], s=95, facecolors="none", edgecolors="#222222", linewidths=1.0)
-    for row, (dx, dy) in zip(large_gaps.head(3).itertuples(index=False), [(28, 32), (42, 0), (28, -32)]):
-        ax.annotate(row.primary_ticker, (row.realized_transition_score, row.commitment_score), xytext=(dx, dy), textcoords="offset points", fontsize=8, bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "none", "alpha": 0.85}, arrowprops={"arrowstyle": "-", "color": "#777777", "lw": 0.6})
-    ax.set(xlim=(0, 100), ylim=(0, 100), xlabel="Realized transition score", ylabel="Commitment score", title="Commitments versus realized outcomes")
+    ax.scatter(
+        large_gaps["realized_transition_score"],
+        large_gaps["commitment_score"],
+        s=95,
+        facecolors="none",
+        edgecolors="#222222",
+        linewidths=1.0,
+    )
+    gap_offsets = [(28, 32), (42, 0), (28, -32)]
+    for row, (dx, dy) in zip(large_gaps.head(3).itertuples(index=False), gap_offsets):
+        ax.annotate(
+            row.primary_ticker,
+            (row.realized_transition_score, row.commitment_score),
+            xytext=(dx, dy),
+            textcoords="offset points",
+            fontsize=8,
+            bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "none", "alpha": 0.85},
+            arrowprops={"arrowstyle": "-", "color": "#777777", "lw": 0.6},
+        )
+    ax.set(
+        xlim=(0, 100),
+        ylim=(0, 100),
+        xlabel="Realized transition score",
+        ylabel="Commitment score",
+        title="Commitments versus realized outcomes",
+    )
     fig.colorbar(points, ax=ax, label="Credibility gap (commitment - realized)")
     sns.despine(ax=ax)
     fig.tight_layout()
     fig.savefig(output_dir / "05_commitments_vs_realized_outcomes.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
-    table_view = top_bottom[["table_position", "primary_ticker", "company_name", "structured_score_after_regulatory_penalty", "net_zero_transition_score", "overall_coverage_grade"]].copy()
-    table_view["structured_score_after_regulatory_penalty"] = table_view["structured_score_after_regulatory_penalty"].map(lambda value: f"{value:.1f}")
-    table_view["net_zero_transition_score"] = table_view["net_zero_transition_score"].map(lambda value: f"{value:.1f}")
+    # Figure 6: render the compact top-and-bottom table.
+    table_columns = [
+        "table_position",
+        "primary_ticker",
+        "company_name",
+        "structured_score_after_regulatory_penalty",
+        "net_zero_transition_score",
+        "overall_coverage_grade",
+    ]
+    table_view = top_bottom[table_columns].copy()
+    table_view["structured_score_after_regulatory_penalty"] = table_view[
+        "structured_score_after_regulatory_penalty"
+    ].map(lambda value: f"{value:.1f}")
+    table_view["net_zero_transition_score"] = table_view["net_zero_transition_score"].map(
+        lambda value: f"{value:.1f}"
+    )
     table_view.columns = ["Group", "Ticker", "Company", "Structured", "Net-zero", "Coverage"]
     fig, ax = plt.subplots(figsize=(13, 5.4))
     ax.axis("off")
-    table = ax.table(cellText=table_view.values, colLabels=table_view.columns, cellLoc="left", colLoc="center", loc="center", colWidths=[0.08, 0.08, 0.36, 0.11, 0.11, 0.10])
+    table = ax.table(
+        cellText=table_view.values,
+        colLabels=table_view.columns,
+        cellLoc="left",
+        colLoc="center",
+        loc="center",
+        colWidths=[0.08, 0.08, 0.36, 0.11, 0.11, 0.10],
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(9)
     table.scale(1, 1.5)
@@ -795,7 +1021,11 @@ def create_figures(frame, output_dir, sectors, pillar_weights, largest_rank_chan
             cell.set_facecolor("#E8F4F1")
         else:
             cell.set_facecolor("#FCECEE")
-    ax.set_title("Top and bottom structured scores among Medium/High coverage companies\nComponent explanations are saved in the accompanying CSV", pad=18)
+    ax.set_title(
+        "Top and bottom structured scores among Medium/High coverage companies\n"
+        "Component explanations are saved in the accompanying CSV",
+        pad=18,
+    )
     fig.tight_layout()
     fig.savefig(output_dir / "06_top_bottom_structured_scores.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
