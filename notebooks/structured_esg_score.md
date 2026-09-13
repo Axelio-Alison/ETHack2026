@@ -1,19 +1,19 @@
 # Structured ESG score
 
-The Workflow we followed is the following:
+Workflow:
 
 1. Clean Bloomberg data, map securities to 500 companies, and join the regulatory panel.
 2. Convert observed features into 0–100 “good performance” percentiles using sector peers, with a global fallback for small groups.
-3. Calculate materiality-weighted pillar scores. When coverage is below 70%, shrink the score toward 50:
+3. Calculate materiality-weighted pillar scores and blend missing coverage with the neutral score of 50:
 
-   `adjusted score = 50 + min(1, coverage / 0.70) × (raw score − 50)`
+   `adjusted score = raw score × coverage + 50 × (1 − coverage)`
 
-Sector peers should improve comparability between different business models, while the global fallback avoids unstable results from small groups. The shrinkage prevents sparse disclosure from producing extreme scores and the regulatory deduction is capped so it cannot overwhelm the underlying pillar assessment.
+Sector peers improve comparability between different business models, while the global fallback avoids unstable results from small groups. The coverage adjustment gives the observed score only the weight supported by available data and assigns the remainder to a neutral value. The regulatory deduction is capped so it cannot overwhelm the underlying pillar assessment.
 
-4. The we combine pillars:
+4. Combine pillars:
 
    `structured score = 45% Environmental + 15% Transition + 20% Social + 20% Governance`
 
-The inputs by pillar are: Environmental—Scope 1+2 footprint; Transition—emissions-intensity trend, SBTi, and climate governance; Social—diversity, safety, policies, and employee stability; Governance—board independence, CEO separation, attendance, women executives, and sustainability oversight.
+Inputs by pillar: Environmental—Scope 1+2 footprint; Transition—emissions-intensity trend, SBTi, and climate governance; Social—diversity, safety, policies, and employee stability; Governance—board independence, CEO separation, attendance, women executives, and sustainability oversight.
 
-The final score deducts up to 15 points for recent, sector-relevant regulatory evidence. A separate net-zero score combines absolute and revenues-adjusted emissions trends with SBTi and climate-governance signals.
+The final score deducts up to 15 points for recent, sector-relevant regulatory evidence. A separate net-zero score combines absolute and employee-adjusted emissions trends with SBTi and climate-governance signals.

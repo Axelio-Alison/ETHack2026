@@ -306,12 +306,10 @@ def score_block(
     frame,
     feature_weights,
     materiality,
-    threshold=0.70,
     neutral_prior=50.0,
     confidence_thresholds=None,
-    prior_mode="fixed",
 ):
-    """Score one block; the same function also handles sensitivity priors."""
+    """Score one block and blend missing coverage with a neutral prior."""
     raw_scores = []
     observed_weights = []
     applicable_weights = []
@@ -341,15 +339,8 @@ def score_block(
 
     raw = pd.Series(raw_scores, index=frame.index, dtype=float)
     observed = pd.Series(observed_weights, index=frame.index, dtype=float).clip(0, 1)
-    # Sensitivity tests reuse this function and change only the prior.
-    if prior_mode == "sector_median":
-        prior = raw.groupby(frame["sector"]).transform("median").fillna(neutral_prior)
-    else:
-        prior = pd.Series(float(neutral_prior), index=frame.index)
-
-    # Sparse blocks move only part of the way from the prior to the raw score.
-    evidence_factor = np.minimum(1.0, observed / threshold)
-    adjusted = prior + evidence_factor * (raw.fillna(prior) - prior)
+    # Missing coverage receives the neutral score of 50 in direct proportion.
+    adjusted = raw.fillna(neutral_prior) * observed + neutral_prior * (1 - observed)
     thresholds = confidence_thresholds or {"High": 0.80, "Medium": 0.50}
 
     return pd.DataFrame(
