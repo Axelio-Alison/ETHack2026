@@ -1,6 +1,6 @@
 # Structured ESG score
 
-Workflow:
+The Workflow we followed is the following:
 
 1. Clean Bloomberg data, map securities to 500 companies, and join the regulatory panel.
 2. Convert observed features into 0–100 “good performance” percentiles using sector peers, with a global fallback for small groups.
@@ -8,12 +8,12 @@ Workflow:
 
    `adjusted score = 50 + min(1, coverage / 0.70) × (raw score − 50)`
 
-Sector peers improve comparability between different business models, while the global fallback avoids unstable results from small groups. Shrinkage prevents sparse disclosure from producing extreme scores, and the regulatory deduction is capped so it cannot overwhelm the underlying pillar assessment.
+Sector peers should improve comparability between different business models, while the global fallback avoids unstable results from small groups. The shrinkage prevents sparse disclosure from producing extreme scores and the regulatory deduction is capped so it cannot overwhelm the underlying pillar assessment.
 
-4. Combine pillars:
+4. The we combine pillars:
 
    `structured score = 45% Environmental + 15% Transition + 20% Social + 20% Governance`
 
-Inputs by pillar: Environmental—Scope 1+2 footprint; Transition—emissions-intensity trend, SBTi, and climate governance; Social—diversity, safety, policies, and employee stability; Governance—board independence, CEO separation, attendance, women executives, and sustainability oversight.
+The inputs by pillar are: Environmental—Scope 1+2 footprint; Transition—emissions-intensity trend, SBTi, and climate governance; Social—diversity, safety, policies, and employee stability; Governance—board independence, CEO separation, attendance, women executives, and sustainability oversight.
 
 The final score deducts up to 15 points for recent, sector-relevant regulatory evidence. A separate net-zero score combines absolute and employee-adjusted emissions trends with SBTi and climate-governance signals.
